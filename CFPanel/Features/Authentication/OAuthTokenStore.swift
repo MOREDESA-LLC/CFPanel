@@ -2,16 +2,18 @@ import Foundation
 import Security
 
 enum OAuthTokenStore {
-    private static let service = "org.zhaohe.CFPanel.cloudflare-oauth"
+    private static let localService = "org.zhaohe.CFPanel.cloudflare-oauth.local"
+    private static let syncedService = "org.zhaohe.CFPanel.cloudflare-oauth.synced"
     private static let account = "primary"
 
-    static func save(_ payload: OAuthTokenPayload) throws {
+    static func save(_ payload: OAuthTokenPayload, storageMode: CredentialStorageMode) throws {
         let data = try JSONEncoder().encode(payload)
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
+            kSecAttrService: service(for: storageMode),
             kSecAttrAccount: account,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrSynchronizable: synchronizableValue(for: storageMode),
+            kSecAttrAccessible: accessibleValue(for: storageMode),
             kSecValueData: data
         ]
 
@@ -22,11 +24,12 @@ enum OAuthTokenStore {
         case errSecDuplicateItem:
             let updateQuery: [CFString: Any] = [
                 kSecClass: kSecClassGenericPassword,
-                kSecAttrService: service,
-                kSecAttrAccount: account
+                kSecAttrService: service(for: storageMode),
+                kSecAttrAccount: account,
+                kSecAttrSynchronizable: synchronizableValue(for: storageMode)
             ]
             let attributes: [CFString: Any] = [
-                kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                kSecAttrAccessible: accessibleValue(for: storageMode),
                 kSecValueData: data
             ]
             let updateStatus = SecItemUpdate(updateQuery as CFDictionary, attributes as CFDictionary)
@@ -38,11 +41,12 @@ enum OAuthTokenStore {
         }
     }
 
-    static func load() throws -> OAuthTokenPayload? {
+    static func load(storageMode: CredentialStorageMode) throws -> OAuthTokenPayload? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
+            kSecAttrService: service(for: storageMode),
             kSecAttrAccount: account,
+            kSecAttrSynchronizable: synchronizableValue(for: storageMode),
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne
         ]
@@ -62,15 +66,48 @@ enum OAuthTokenStore {
         }
     }
 
-    static func delete() throws {
+    static func delete(storageMode: CredentialStorageMode) throws {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: account
+            kSecAttrService: service(for: storageMode),
+            kSecAttrAccount: account,
+            kSecAttrSynchronizable: synchronizableValue(for: storageMode)
         ]
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainTokenStoreError.unhandled(status)
+        }
+    }
+
+    static func deleteAll() throws {
+        try delete(storageMode: .local)
+        try delete(storageMode: .synced)
+    }
+
+    private static func service(for storageMode: CredentialStorageMode) -> String {
+        switch storageMode {
+        case .local:
+            return localService
+        case .synced:
+            return syncedService
+        }
+    }
+
+    private static func synchronizableValue(for storageMode: CredentialStorageMode) -> Any {
+        switch storageMode {
+        case .local:
+            return kCFBooleanFalse as Any
+        case .synced:
+            return kCFBooleanTrue as Any
+        }
+    }
+
+    private static func accessibleValue(for storageMode: CredentialStorageMode) -> CFString {
+        switch storageMode {
+        case .local:
+            return kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        case .synced:
+            return kSecAttrAccessibleWhenUnlocked
         }
     }
 }

@@ -46,6 +46,7 @@ nonisolated enum AuthenticationMethod: String, CaseIterable, Identifiable, Codab
 
 nonisolated enum CredentialStorageMode: String, CaseIterable, Identifiable, Codable {
     case local
+    case synced
 
     static let defaultsKey = "credential_storage_mode"
 
@@ -65,12 +66,14 @@ nonisolated enum CredentialStorageMode: String, CaseIterable, Identifiable, Coda
     var title: LocalizedStringResource {
         switch self {
         case .local: "This Device"
+        case .synced: "iCloud Keychain"
         }
     }
 
     var shortTitle: LocalizedStringResource {
         switch self {
         case .local: "Local"
+        case .synced: "Synced"
         }
     }
 
@@ -78,6 +81,8 @@ nonisolated enum CredentialStorageMode: String, CaseIterable, Identifiable, Coda
         switch self {
         case .local:
             "Stores the Cloudflare token only on this device."
+        case .synced:
+            "Stores the Cloudflare token in iCloud Keychain so it can sync to your other devices."
         }
     }
 }
