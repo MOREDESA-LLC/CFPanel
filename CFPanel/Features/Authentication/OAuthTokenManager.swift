@@ -5,10 +5,10 @@ actor OAuthTokenManager {
 
     private var refreshTask: Task<OAuthTokenPayload, Error>?
 
-    func currentValidPayload() async throws -> OAuthTokenPayload? {
+    func currentValidPayload(storageMode: CredentialStorageMode) async throws -> OAuthTokenPayload? {
         OAuthDiagnostics.notice("Loading current OAuth token payload from secure storage.")
         guard let payload = try await MainActor.run(body: {
-            try OAuthTokenStore.load()
+            try OAuthTokenStore.load(storageMode: storageMode)
         }) else {
             OAuthDiagnostics.notice("No stored OAuth token payload was found.")
             return nil
@@ -22,13 +22,13 @@ actor OAuthTokenManager {
         }
 
         OAuthDiagnostics.notice("Stored OAuth token is close to expiry and will be refreshed.")
-        return try await refreshPayloadIfNeeded()
+        return try await refreshPayloadIfNeeded(storageMode: storageMode)
     }
 
-    func refreshPayloadIfNeeded() async throws -> OAuthTokenPayload? {
+    func refreshPayloadIfNeeded(storageMode: CredentialStorageMode) async throws -> OAuthTokenPayload? {
         OAuthDiagnostics.notice("Checking whether stored OAuth token needs refresh.")
         guard let payload = try await MainActor.run(body: {
-            try OAuthTokenStore.load()
+            try OAuthTokenStore.load(storageMode: storageMode)
         }) else {
             OAuthDiagnostics.notice("Refresh skipped because no stored OAuth token payload exists.")
             return nil
@@ -51,7 +51,7 @@ actor OAuthTokenManager {
             let coordinator = await MainActor.run { OAuthCoordinator() }
             let refreshed = try await coordinator.refreshTokenIfNeeded(payload)
             try await MainActor.run(body: {
-                try OAuthTokenStore.save(refreshed)
+                try OAuthTokenStore.save(refreshed, storageMode: storageMode)
             })
             OAuthDiagnostics.notice(
                 "Saved refreshed OAuth token payload with expiry \(OAuthDiagnostics.describeDate(refreshed.expiresAt))."

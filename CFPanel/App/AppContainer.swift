@@ -71,7 +71,10 @@ final class AppContainer {
         Task {
             OAuthDiagnostics.notice("Registering OAuth token refresh handler with CloudflareAPI.")
             await api.setOAuthTokenRefreshHandler { @Sendable in
-                guard let payload = try await OAuthTokenManager.shared.refreshPayloadIfNeeded() else {
+                let storageMode = await MainActor.run { stores.auth.credentialStorageMode }
+                guard let payload = try await OAuthTokenManager.shared.refreshPayloadIfNeeded(
+                    storageMode: storageMode
+                ) else {
                     OAuthDiagnostics.error("OAuth token refresh handler could not load a refreshable token payload.")
                     return nil
                 }

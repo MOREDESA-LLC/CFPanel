@@ -148,6 +148,7 @@ enum KeychainTokenStore {
 
     static func deleteAllCredentials() throws {
         try deleteCredentials(storageMode: .local)
+        try deleteCredentials(storageMode: .synced)
         try deleteLegacyCredentials()
     }
 
@@ -222,7 +223,8 @@ enum KeychainTokenStore {
         switch storageMode {
         case .local:
             return localService
-//            return syncedService
+        case .synced:
+            return syncedService
         }
     }
 
@@ -230,7 +232,8 @@ enum KeychainTokenStore {
         switch storageMode {
         case .local:
             return kCFBooleanFalse as Any
-//            return kCFBooleanTrue as Any
+        case .synced:
+            return kCFBooleanTrue as Any
         }
     }
 
@@ -238,7 +241,8 @@ enum KeychainTokenStore {
         switch storageMode {
         case .local:
             return kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-//            return kSecAttrAccessibleWhenUnlocked
+        case .synced:
+            return kSecAttrAccessibleWhenUnlocked
         }
     }
 

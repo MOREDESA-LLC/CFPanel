@@ -81,6 +81,10 @@ final class CredentialPersistenceService {
         let resolvedToken = await api.currentToken()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         if sessionStore.isSignedIn, resolvedToken.isEmpty == false {
+            let oauthPayload = sessionStore.authenticationMethod == .oauth
+                ? try OAuthTokenStore.load(storageMode: previousMode)
+                : nil
+
             try KeychainTokenStore.save(
                 credentials: StoredCloudflareCredentials(
                     token: resolvedToken,
@@ -92,6 +96,10 @@ final class CredentialPersistenceService {
                 ),
                 storageMode: storageMode
             )
+            if let oauthPayload {
+                try OAuthTokenStore.save(oauthPayload, storageMode: storageMode)
+                try OAuthTokenStore.delete(storageMode: previousMode)
+            }
             try KeychainTokenStore.deleteCredentials(storageMode: previousMode)
             try KeychainTokenStore.deleteLegacyCredentials()
             return
@@ -115,6 +123,11 @@ final class CredentialPersistenceService {
         }
 
         try KeychainTokenStore.save(credentials: storedCredentials, storageMode: storageMode)
+        if storedCredentials.authenticationMethod == .oauth,
+           let oauthPayload = try OAuthTokenStore.load(storageMode: previousMode) {
+            try OAuthTokenStore.save(oauthPayload, storageMode: storageMode)
+            try OAuthTokenStore.delete(storageMode: previousMode)
+        }
         try KeychainTokenStore.deleteCredentials(storageMode: previousMode)
         try KeychainTokenStore.deleteLegacyCredentials()
     }
@@ -122,6 +135,7 @@ final class CredentialPersistenceService {
     func deletePersistedCredentials(storageMode: CredentialStorageMode) -> Error? {
         do {
             try KeychainTokenStore.deleteCredentials(storageMode: storageMode)
+            try OAuthTokenStore.delete(storageMode: storageMode)
             try KeychainTokenStore.deleteLegacyCredentials()
             return nil
         } catch {
@@ -131,6 +145,7 @@ final class CredentialPersistenceService {
 
     func deleteAllCredentials() throws {
         try KeychainTokenStore.deleteAllCredentials()
+        try OAuthTokenStore.deleteAll()
     }
 }
 

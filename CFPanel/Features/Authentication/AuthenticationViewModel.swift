@@ -202,7 +202,9 @@ final class AuthenticationViewModel {
 
             let normalizedToken: String
             if credentials.authenticationMethod == .oauth {
-                guard let oauthPayload = try await OAuthTokenManager.shared.currentValidPayload() else {
+                guard let oauthPayload = try await OAuthTokenManager.shared.currentValidPayload(
+                    storageMode: selectedStorageMode
+                ) else {
                     try credentialPersistence.deleteAllCredentials()
                     return
                 }
@@ -317,10 +319,10 @@ final class AuthenticationViewModel {
         Task {
             await OAuthTokenManager.shared.clear()
             if sessionStore.authenticationMethod == .oauth,
-               let payload = try? OAuthTokenStore.load()
+               let payload = try? OAuthTokenStore.load(storageMode: sessionStore.credentialStorageMode)
             {
                 await oauthCoordinator.revokeCurrentToken(payload)
-                try? OAuthTokenStore.delete()
+                try? OAuthTokenStore.delete(storageMode: sessionStore.credentialStorageMode)
             }
 
             let credentialDeletionError = clearPersistedSession(clearConnectionSettings: true)
@@ -459,7 +461,7 @@ final class AuthenticationViewModel {
                 """
             )
             let refreshedPayload = try await oauthCoordinator.refreshTokenIfNeeded(payload)
-            try OAuthTokenStore.save(refreshedPayload)
+            try OAuthTokenStore.save(refreshedPayload, storageMode: sessionStore.credentialStorageMode)
             OAuthDiagnostics.notice(
                 """
                 Persisted OAuth token payload. expiresAt=\(OAuthDiagnostics.describeDate(refreshedPayload.expiresAt)) \
